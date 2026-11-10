@@ -30,15 +30,40 @@ function rowToChunk(r: any, extra: Partial<RetrievedChunk>): RetrievedChunk {
   };
 }
 
-/** Búsqueda híbrida: pgvector (coseno, exacta) + FTS español, fusionadas con RRF (k=60). */
+/**
+ * Construye una tsquery con semántica OR a partir de los lexemas de la pregunta.
+ *
+ * Diagnóstico (10-nov-2026): plainto_tsquery une los lexemas con AND y exige
+ * que el fragmento los contenga TODOS; para preguntas naturales en español no
+ * lo cumple casi ningún fragmento (la pregunta de las huellas, con 7 lexemas,
+ * devolvía 0 filas: la vía FTS estaba muerta y la «híbrida» era solo vectorial).
+ * Con OR, ts_rank ordena por cobertura de términos: el fragmento preciso de
+ * las huellas (Cap. 5, pp. 123-124) pasa a ser el n.º 1 FTS de la pregunta
+ * simple y el n.º 5 de la compuesta.
+ */
+async function buildOrTsQuery(query: string): Promise<string | null> {
+  const res = await pool.query(`SELECT plainto_tsquery('spanish', $1)::text AS t`, [query]);
+  const raw = (res.rows[0]?.t as string | undefined)?.trim();
+  if (!raw) return null;
+  const terms = raw
+    .split(' & ')
+    .map((s) => s.trim().replace(/^'|'$/g, '').replace(/'/g, "''"))
+    .filter(Boolean);
+  if (!terms.length) return null;
+  return terms.map((t) => `'${t}'`).join(' | ');
+}
+
+/** Búsqueda híbrida: pgvector (coseno, exacta) + FTS español (OR), fusionadas con RRF (k=60). */
 export async function hybridSearch(
   query: string,
-  opts: { candidatesPerPath?: number; finalLimit?: number } = {},
+  opts: { candidatesPerPath?: number; finalLimit?: number; guaranteedPerPath?: number } = {},
 ): Promise<{ chunks: RetrievedChunk[]; bestVectorScore: number; bestFtsRank: number }> {
-  const perPath = opts.candidatesPerPath ?? 10;
+  const perPath = opts.candidatesPerPath ?? 20;
   const finalLimit = opts.finalLimit ?? 8;
+  const guaranteedPerPath = opts.guaranteedPerPath ?? 3;
   const qv = await embedQuery(query);
   const lit = vectorLiteral(qv);
+  const orQuery = await buildOrTsQuery(query);
 
   const [vecRes, ftsRes] = await Promise.all([
     pool.query(
@@ -49,15 +74,17 @@ export async function hybridSearch(
         LIMIT $2`,
       [lit, perPath],
     ),
-    pool.query(
-      `SELECT chunk_id, chapter, page_start, page_end, printed_page_start, printed_page_end, content,
-              ts_rank(search_vector, q) AS rank
-         FROM document_chunks, plainto_tsquery('spanish', $1) AS q
-        WHERE search_vector @@ q
-        ORDER BY rank DESC
-        LIMIT $2`,
-      [query, perPath],
-    ),
+    orQuery
+      ? pool.query(
+          `SELECT chunk_id, chapter, page_start, page_end, printed_page_start, printed_page_end, content,
+                  ts_rank(search_vector, q) AS rank
+             FROM document_chunks, to_tsquery('spanish', $1) AS q
+            WHERE search_vector @@ q
+            ORDER BY rank DESC
+            LIMIT $2`,
+          [orQuery, perPath],
+        )
+      : Promise.resolve({ rows: [] as any[] }),
   ]);
 
   const merged = new Map<string, RetrievedChunk>();
@@ -78,7 +105,24 @@ export async function hybridSearch(
     }
   });
 
-  const chunks = [...merged.values()].sort((a, b) => b.rrfScore - a.rrfScore).slice(0, finalLimit);
+  // Inclusión garantizada: los mejores hits de CADA vía entran siempre en el
+  // contexto final. Sin esto, el corte a 8 dejaba fuera al fragmento preciso
+  // de las huellas en la pregunta compuesta (n.º 10 vectorial, n.º 5 FTS-OR):
+  // los fragmentos genéricos de la Introducción ganan el RRF por acumulación.
+  const byRrf = [...merged.values()].sort((a, b) => b.rrfScore - a.rrfScore);
+  const guaranteedIds = new Set<string>([
+    ...vecRes.rows.slice(0, guaranteedPerPath).map((r) => r.chunk_id as string),
+    ...ftsRes.rows.slice(0, guaranteedPerPath).map((r) => r.chunk_id as string),
+  ]);
+  const selected: RetrievedChunk[] = [];
+  for (const c of byRrf) {
+    if (guaranteedIds.has(c.chunkId)) selected.push(c);
+  }
+  for (const c of byRrf) {
+    if (selected.length >= finalLimit) break;
+    if (!selected.includes(c)) selected.push(c);
+  }
+  const chunks = selected.slice(0, finalLimit).sort((a, b) => b.rrfScore - a.rrfScore);
   return {
     chunks,
     bestVectorScore: vecRes.rows.length ? Number(vecRes.rows[0].score) : 0,

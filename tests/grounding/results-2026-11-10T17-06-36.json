@@ -1,0 +1,166 @@
+{
+ "base": "https://jpecina.duckdns.org/josemaria-rag",
+ "ranAt": "2026-11-10T17:09:51.095Z",
+ "results": [
+  {
+   "id": "F04",
+   "category": "factual",
+   "verdict": "PASS",
+   "problems": [],
+   "turns": [
+    {
+     "question": "¿Cuántos años vivió Josemaría en Logroño?",
+     "ms": 1209,
+     "httpStatus": 200,
+     "intent": "factual",
+     "mode": "extractivo_conservador",
+     "answer": "Esto es lo que dice el libro sobre tu pregunta:\n\n> Hay cosas que, a pesar de los años que han pasado —ya más de cincuenta— las recuerdo con tal claridad que me parece que sucedieron ayer. Por eso estoy ahora viendo a Josemaría llegar a mi casa de Logroño y a mi padre dedicando esfuerzo y tiempo a estimularnos y animarnos a estudiar. Recuerdo también que algún día fui a su casa pero fueron muy pocas veces. Ahora mismo localizaría el lugar donde vivían, pero no llegué a tener trato con su familia. Sé que su padre había tenido un revés en su negoci\n> — Apéndice documental, pp. 305-306\n\n> Todo esto es verdad y en testimonio de ello lo firmo en Valladolid a catorce de Octubre de mil novecientos treinta y nueve. Albino Pajares (rubricado) Sello de la Inspección del Clero Castrense de Valladolid 41 En Logroño estuvo, por tanto, desde febrero de 1917 hasta mayo de 1920. Durante estos años fue cuando dio clases a Josemaría Escrivá. II. CARTAS Agrupamos en este apartado 17 cartas, algunas de san Josemaría, otras de sus interlocutores. Son todas las que hemos podido encontrar relacionad\n> — Apéndice documental, pp. 272-274\n\n> A, leg. 100-20, carp. 2, exp. 6, pp. 66-67). 81 Comentario de mons. Javier ECHEVARRÍA, en Memoria del... , oc., p.46. cfr. testimonio citado de Santiago Escrivá de Balaguer. 82 cfr. Álvaro DEL PORTILLO , Entrevista... , oc., p . 85; Ana SASTRE , oc., p. 70. 83 Y no Urrutia, como se lee en algunos documentos impresos, como la Guía Regional o el Anuario de la vida oficial. Ver su hoja de servicios en Archivo General Militar de Segovia, sección 1ª, división 1ª, Legajo A-1197. —También pueden consul\n> — Capítulo 9 — Fallecimiento repentino de don José Escrivá (1924), pp. 219-220",
+     "citations": [
+      {
+       "chunkId": "chunk_00352",
+       "chapter": "Apéndice documental",
+       "printedPages": [
+        305,
+        306
+       ],
+       "pdfPages": [
+        304,
+        305
+       ]
+      },
+      {
+       "chunkId": "chunk_00312",
+       "chapter": "Apéndice documental",
+       "printedPages": [
+        272,
+        274
+       ],
+       "pdfPages": [
+        271,
+        273
+       ]
+      },
+      {
+       "chunkId": "chunk_00259",
+       "chapter": "Capítulo 9 — Fallecimiento repentino de don José Escrivá (1924)",
+       "printedPages": [
+        219,
+        220
+       ],
+       "pdfPages": [
+        218,
+        219
+       ]
+      }
+     ],
+     "evidenceIds": [
+      "chunk_00352",
+      "chunk_00312",
+      "chunk_00259",
+      "chunk_00001",
+      "chunk_00003",
+      "chunk_00345",
+      "chunk_00228",
+      "chunk_00342",
+      "chunk_00219",
+      "chunk_00314"
+     ],
+     "attempts": [
+      {
+       "mode": "extractivo_conservador",
+       "intent": "factual",
+       "httpStatus": 200
+      },
+      {
+       "mode": "extractivo_conservador",
+       "intent": "factual",
+       "httpStatus": 200,
+       "retried": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F05",
+   "category": "factual",
+   "verdict": "FAIL",
+   "problems": [
+    "la respuesta no contiene ninguno de los términos clave: Canalejas / Sagasta"
+   ],
+   "turns": [
+    {
+     "question": "¿Dónde vivía la familia Escrivá en Logroño?",
+     "ms": 1191,
+     "httpStatus": 200,
+     "intent": "factual",
+     "mode": "extractivo_conservador",
+     "answer": "Esto es lo que dice el libro sobre tu pregunta:\n\n> Los compañeros de trabajo en más de una ocasión lo hemos comentado: «Si el hijo sacerdote es tan santo como su padre, seguro que llega a los altares». El recuerdo de su padre es imborrable. —¿Cuántos años vivió monseñor Escrivá en Logroño? —Unos seis, ya que su padre permaneció en esta casa diez años; luego, Josemaría estuvo estudiando en el Instituto y en el seminario de Logroño, para luego marchar a Zaragoza a continuar sus estudios. —¿Estuvo, en aquel entonces, en alguna ocasión monseñor en e\n> — Apéndice documental, pp. 300-301\n\n> Trayecto no muy largo, por cierto, porque apenas supone diez minutos caminando, pero psicológicamente, entonces, era casi como salir de la ciudad. 92 y cfr. también en Apéndice Documental, entrevista con Sofía de Miguel). —El segundo piso estaba repartido entre dos familias. En la izquierda vivía un empleado, Carlos Serrano Sanz, natural de Tudela (Navarra), que llevaba 3 años en Logroño, con su mujer, su suegro, cinco hijos y una sirvienta. En la otra mano vivía Francisco San Martín Jou, de 28 \n> — Capítulo 3 — La vida en Logroño, pp. 64-65\n\n> Hacia 1916, mi padre, Antonio Royo, que trabajaba como empleado en el negocio de tejidos «La Ciudad de Londres» (sic), hizo amistad con una familia que acaba de llegar a la ciudad. En «La Ciudad de Londres» había muchos empleados; de entre ellos, D. Antonio Garri- 91 gosa, su dueño, se dirigió a mi padre pidiendo que se ofreciera, junto con su familia, a D. José Escrivá y a Dña. Dolores Albás que venían de Barbastro, donde habían tenido un revés de fortuna. Fue entonces cuando conocí a Carmen y \n> — Apéndice documental, pp. 296-297",
+     "citations": [
+      {
+       "chunkId": "chunk_00345",
+       "chapter": "Apéndice documental",
+       "printedPages": [
+        300,
+        301
+       ],
+       "pdfPages": [
+        299,
+        300
+       ]
+      },
+      {
+       "chunkId": "chunk_00063",
+       "chapter": "Capítulo 3 — La vida en Logroño",
+       "printedPages": [
+        64,
+        65
+       ],
+       "pdfPages": [
+        63,
+        64
+       ]
+      },
+      {
+       "chunkId": "chunk_00340",
+       "chapter": "Apéndice documental",
+       "printedPages": [
+        296,
+        297
+       ],
+       "pdfPages": [
+        295,
+        296
+       ]
+      }
+     ],
+     "evidenceIds": [
+      "chunk_00345",
+      "chunk_00063",
+      "chunk_00340",
+      "chunk_00259",
+      "chunk_00058",
+      "chunk_00344",
+      "chunk_00053",
+      "chunk_00276",
+      "chunk_00003",
+      "chunk_00277"
+     ],
+     "attempts": [
+      {
+       "mode": "extractivo_conservador",
+       "intent": "factual",
+       "httpStatus": 200
+      },
+      {
+       "mode": "extractivo_conservador",
+       "intent": "factual",
+       "httpStatus": 200,
+       "retried": true
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

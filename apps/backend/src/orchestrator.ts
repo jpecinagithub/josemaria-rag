@@ -153,9 +153,28 @@ function verifyAndConvert(answer: string, chunks: RetrievedChunk[]): { answer: s
   let converted = answer;
   for (const id of valid) {
     const c = byId.get(id)!;
-    converted = converted.replaceAll(`[${id}]`, `[${pagesLabel(c)}]`);
-    converted = converted.replaceAll(id, `[${pagesLabel(c)}]`);
+    // El modelo envuelve los identificadores en corchetes variados
+    // ([id], 【id】, [[id]]…): se sustituye el identificador CON su envoltorio
+    // por la etiqueta limpia de páginas, para que no queden marcadores
+    // crudos del tipo «【[pp. 12-13]» en el texto. El envoltorio reconocido es
+    // solo de apertura (【 o [) y de cierre (] o 】): una clase amplia de
+    // corchetes a ambos lados se comía el «]» de la etiqueta anterior cuando
+    // dos citas iban seguidas («[pp. 132-133 [p. 134]», visto en producción).
+    const re = new RegExp(`(?:【\\s*)?(?:\\[\\s*)?${id}(?:\\s*\\])?(?:\\s*】)?`, 'g');
+    converted = converted.replace(re, `[${pagesLabel(c)}]`);
   }
+  // Barrido final: ningún corchete CJK residual y corchetes duplicados fuera.
+  converted = converted
+    .replace(/[【】]/g, '')
+    .replace(/(\[pp?\. [^\]]+\])\]+/g, '$1')
+    .replace(/\[\s*(\[pp?\. [^\]]+\])\s*\]/g, '$1')
+    .replace(/(\[pp?\. [^\]]+\])(\s*\[pp?\. [^\]]+\])+/g, '$1')
+    // Artefactos de cita ajenos al formato propio («[pp. 123-124]†L1-L4»,
+    // emitidos por gpt-oss-120b en la prueba del 10-nov): se eliminan.
+    .replace(/†\s*L\d+(?:\s*[-–]\s*L?\d+)?/g, '')
+    .replace(/†/g, '')
+    // La etiqueta de página no debe quedar pegada a la palabra anterior.
+    .replace(/([^\s\[])(\[pp?\. )/g, '$1 $2');
   return { answer: converted, citations: valid.map((id) => toCitation(byId.get(id)!)) };
 }
 
@@ -221,14 +240,27 @@ export async function handleChat(inputSessionId: string | undefined, message: st
   }
 
   // 4) Factual / seguimiento: recuperación híbrida (el seguimiento resuelve el contexto).
-  const isFollowup = FOLLOWUP_RE.test(trimmed) || trimmed.length <= 40;
+  // El seguimiento EXIGE historial: una pregunta compuesta en una sesión nueva
+  // («…y qué decidió entonces?») NO es seguimiento aunque su texto case con
+  // FOLLOWUP_RE; sin mensaje previo se procesa como factual y se busca tal cual.
+  const prev = await lastUserMessage(sessionId);
+  const isFollowup = prev !== null && (FOLLOWUP_RE.test(trimmed) || trimmed.length <= 40);
   let retrievalQuery = trimmed;
-  if (isFollowup) {
-    const prev = await lastUserMessage(sessionId);
-    if (prev) retrievalQuery = `${prev} ${trimmed}`;
+  if (isFollowup && prev) {
+    retrievalQuery = `${prev} ${trimmed}`;
   }
-  const { chunks, bestVectorScore, bestFtsRank } = await hybridSearch(retrievalQuery, { finalLimit: 8 });
-  const hasEvidence = bestVectorScore >= config.retrievalMinScore || bestFtsRank >= 0.1;
+  // finalLimit 10 (no 8): en la batería del 10-nov, chunk_00001 («más de 9
+  // años», F04) quedaba vectorial n.º 10 / FTS n.º 18 y chunk_00058 (F05)
+  // n.º 13 / n.º 8: ambos entraban como candidatos pero el corte a 8 los
+  // dejaba fuera y el modelo respondía desde el Apéndice. Con 10 entran.
+  // Coste: ~+1.000 tokens de prompt por llamada. La puerta de evidencia
+  // (coseno ≥ umbral) no cambia: la abstención queda intacta.
+  const { chunks, bestVectorScore } = await hybridSearch(retrievalQuery, { finalLimit: 10 });
+  // Evidencia = solo la vía vectorial. Con la FTS en modo OR, su ts_rank ya no
+  // separa temas ajenos de factuales (medido 10-nov: factuales 0,047-0,085;
+  // ajenas 0,021-0,061, solapados), mientras el coseno sí (factuales ≥ 0,70;
+  // ajenas clásicas ≤ 0,45; umbral calibrado 0,55).
+  const hasEvidence = bestVectorScore >= config.retrievalMinScore;
   if (!hasEvidence || !chunks.length) {
     return finish({ answer: ABSTENTION_TEXT, citations: [], evidence: [], intent: 'sin_evidencia', mode: 'abstencion' });
   }
@@ -263,10 +295,19 @@ async function generateWithLlm(
   let raw = '';
   try {
     raw = await llmProvider.chat(prompt, question);
-  } catch {
+  } catch (err) {
+    // Observabilidad: sin este registro no se distingue un 429 de Groq de
+    // una respuesta vacía del modelo (ambos degradaban en silencio).
+    console.error('[llm] error de llamada:', err instanceof Error ? err.message.slice(0, 300) : err);
     raw = '';
   }
   const verified = raw ? verifyAndConvert(raw, chunks) : null;
+  if (raw && !verified) {
+    const idsInRaw = [...raw.matchAll(/chunk_\d{5}/g)].length;
+    console.error(
+      `[llm] verificación fallida: longitud=${raw.length}, identificadores en crudo=${idsInRaw}, extracto=${JSON.stringify(raw.slice(0, 200))}`,
+    );
+  }
   if (verified) {
     return finish({
       answer: verified.answer,
