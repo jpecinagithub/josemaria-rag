@@ -1,0 +1,78 @@
+name: josemaria-rag
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-josemaria_rag}
+      POSTGRES_USER: ${POSTGRES_USER:-rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD en .env}
+    volumes:
+      - josemaria_rag_pgdata:/var/lib/postgresql/data
+    # Sin puertos publicados: solo accesible en la red interna del proyecto.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rag} -d ${POSTGRES_DB:-josemaria_rag}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - rag
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "8100"
+      DATABASE_URL: postgres://${POSTGRES_USER:-rag}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-josemaria_rag}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://172.30.77.1:11434}
+    ports:
+      # Solo localhost del host; el exterior entra por nginx (/josemaria-rag/).
+      - "127.0.0.1:8100:8100"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama-bridge:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8100/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    networks:
+      - rag
+
+  # rag-ollama (del host) vive en la red bridge por defecto y solo publica en
+  # el 127.0.0.1 del host; Docker no permite unir un servicio a la red bridge
+  # por defecto desde compose («network-scoped aliases…»). Este puente, con
+  # red del host, escucha SOLO en la pasarela de la red del proyecto
+  # (172.30.77.1:11434) y reenvía al 127.0.0.1:11434 del host.
+  ollama-bridge:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    image: josemaria-rag-backend:latest
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - node
+      - "-e"
+      - "const net=require('net');net.createServer(c=>{const u=net.connect(11434,'127.0.0.1');c.pipe(u);u.pipe(c);const k=()=>{c.destroy();u.destroy()};c.on('error',k);u.on('error',k)}).listen(11434,'172.30.77.1',()=>console.log('ollama-bridge en 172.30.77.1:11434 -> 127.0.0.1:11434'))"
+
+networks:
+  rag:
+    name: josemaria-rag
+    ipam:
+      config:
+        - subnet: 172.30.77.0/24
+          gateway: 172.30.77.1
+
+volumes:
+  josemaria_rag_pgdata:
+    name: josemaria_rag_pgdata

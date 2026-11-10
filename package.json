@@ -1,0 +1,1 @@
+{"description":"RAG documental sobre «Josemaría Escrivá en Logroño (1915-1925)» de Jaime Toldrá Parés (Rialp, 2007)","name":"josemaria-rag","private":true,"scripts":{"build":"npm --prefix apps/frontend run build && npm --prefix apps/backend run build","dev:backend":"npm --prefix apps/backend run dev","dev:frontend":"npm --prefix apps/frontend run dev"},"version":"1.0.0"}

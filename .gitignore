@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.log
+# El PDF del libro y los datos generados no se versionan (derechos + tamaño)
+data/*.pdf
+data/*.json
+!data/.gitkeep
+.DS_Store
+*.tsbuildinfo
